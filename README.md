@@ -6,6 +6,8 @@ Deze repository bevat een eigen ComfyUI Docker-image met twee workflows. **[`fil
 
 Importeer `workflows/film-restoration.json`, upload de clip in `LoadVideo` en start de workflow. `SeedVR2VideoUpscaler` gebruikt alle geladen frames; `CreateVideo` behoudt de originele framerate en audiotrack. De output heet `film-restored`. De meegeleverde 3B FP16 variant is gekozen voor kwaliteit en heeft circa 7,3 GB aan modelbestanden.
 
+ComfyUI accepteert uploads tot 4 GB via de browser (`--max-upload-size 4096`). Geeft de upload toch HTTP 413, of is de video groter, zet het bestand dan via RunPod-bestandsoverdracht in `/workspace/ComfyUI/input`. Gebruik voor lange clips daarna `film-revive-long` in de Pod-terminal, zoals hieronder beschreven. De uploadgrens bepaalt niet hoeveel videoframes in het GPU-geheugen passen.
+
 Sterk vervaagde of verdwenen informatie is niet exact terug te halen. AI kan aannemelijke details toevoegen; vergelijk daarom gezichten, tekst en kleine voorwerpen met het origineel.
 
 ## Clips van 1 minuut tot 60 minuten
