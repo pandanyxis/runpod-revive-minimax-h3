@@ -39,8 +39,9 @@ RUN git clone https://github.com/Comfy-Org/ComfyUI.git "$COMFYUI_DIR" && \
 
 COPY scripts/entrypoint.sh /usr/local/bin/film-revive-entrypoint
 COPY scripts/download-models.py /usr/local/bin/film-revive-download-models
+COPY scripts/restore-long-video.sh /usr/local/bin/film-revive-long
 COPY models.json /opt/film-revive/models.json
-RUN chmod +x /usr/local/bin/film-revive-entrypoint /usr/local/bin/film-revive-download-models
+RUN chmod +x /usr/local/bin/film-revive-entrypoint /usr/local/bin/film-revive-download-models /usr/local/bin/film-revive-long
 
 WORKDIR /opt/ComfyUI
 EXPOSE 8188

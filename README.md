@@ -8,6 +8,18 @@ Importeer `workflows/film-restoration.json`, upload de clip in `LoadVideo` en st
 
 Sterk vervaagde of verdwenen informatie is niet exact terug te halen. AI kan aannemelijke details toevoegen; vergelijk daarom gezichten, tekst en kleine voorwerpen met het origineel.
 
+## Clips van 1 minuut tot 60 minuten
+
+Er is geen vaste limiet in minuten, maar de ComfyUI-canvasworkflow laadt de frames als één videobatch en is daarom vooral geschikt voor korte clips. De instelling `batch_size=17` beperkt het modelgeheugen per stap, niet automatisch het geheugen dat nodig is om de hele clip te laden. Een film van 60 minuten moet via de streamingroute hieronder; die verwerkt 170 frames per stuk en laat overlappende frames de overgangen verzachten.
+
+Start de Pod met `DOWNLOAD_MODELS=1` en `MODEL_SET=restoration`. Upload de film naar `/workspace/ComfyUI/input`, open de Pod-terminal en voer uit:
+
+```bash
+film-revive-long "/workspace/ComfyUI/input/mijn-film.mp4" "/workspace/ComfyUI/output/mijn-film-restored.mp4"
+```
+
+Een derde argument kiest de doelresolutie aan de korte zijde, bijvoorbeeld `720` wanneer 1080 te veel GPU-geheugen of tijd kost. Het script gebruikt SeedVR2 streaming, schrijft een tijdelijke video en zet daarna de oorspronkelijke audio terug. Zorg voor genoeg vrije ruimte voor bron, tijdelijke video en resultaat; voor een uur film is 100 GB of meer op `/workspace` een verstandige start, afhankelijk van de bestandsgrootte en bitrate. De verwerkingstijd hangt sterk af van GPU, bronresolutie en gewenste uitvoer en kan voor 60 minuten lang zijn. Test eerst 1 minuut van vergelijkbare kwaliteit.
+
 De optionele [`film-revive.json`](workflows/film-revive.json) is de aangeleverde MiniMax H3 workflow. Die gebruikt één frame als gids en genereert de rest van de clip opnieuw. Dit is minder geschikt als getrouwheid aan de originele beweging en details belangrijk is. `film-revive` is de gegenereerde video; `film-revive-compare` toont een vergelijking.
 
 ## Benodigdheden
