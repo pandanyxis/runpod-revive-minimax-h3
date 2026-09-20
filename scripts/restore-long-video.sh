@@ -40,6 +40,8 @@ python "$COMFYUI_DIR/custom_nodes/ComfyUI-SeedVR2_VideoUpscaler/inference_cli.py
   --blocks_to_swap 32 \
   --dit_offload_device cpu \
   --vae_offload_device cpu \
+  --cache_dit \
+  --cache_vae \
   --vae_encode_tiled \
   --vae_decode_tiled \
   --video_backend ffmpeg
