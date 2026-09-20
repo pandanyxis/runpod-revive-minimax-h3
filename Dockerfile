@@ -1,5 +1,5 @@
 FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04
-LABEL org.opencontainers.image.source="https://github.com/pandanyxis/runpod-revive-minimax-h3"
+LABEL org.opencontainers.image.source="https://github.com/pandanyxis/runpod-seedvr2-film-revive"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -19,20 +19,16 @@ RUN pip install --upgrade pip && \
       --index-url https://download.pytorch.org/whl/cu130
 
 ARG COMFYUI_REF=5ba116a40f1944f64e2e4a8ace826656e6293bf4
-ARG KJNODES_REF=d3cfe21625e5170126ce06fbfcfe1d88108688c3
 ARG VHS_REF=4d907bee61e92c2e65af3bd6383a4e4d356126d1
 ARG SEEDVR2_REF=4490bd1f482e026674543386bb2a4d176da245b9
 
 RUN git clone https://github.com/Comfy-Org/ComfyUI.git "$COMFYUI_DIR" && \
     git -C "$COMFYUI_DIR" checkout "$COMFYUI_REF" && \
-    git clone https://github.com/kijai/ComfyUI-KJNodes.git "$COMFYUI_DIR/custom_nodes/ComfyUI-KJNodes" && \
-    git -C "$COMFYUI_DIR/custom_nodes/ComfyUI-KJNodes" checkout "$KJNODES_REF" && \
     git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git "$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite" && \
     git -C "$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite" checkout "$VHS_REF" && \
     git clone https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git "$COMFYUI_DIR/custom_nodes/ComfyUI-SeedVR2_VideoUpscaler" && \
     git -C "$COMFYUI_DIR/custom_nodes/ComfyUI-SeedVR2_VideoUpscaler" checkout "$SEEDVR2_REF" && \
     pip install -r "$COMFYUI_DIR/requirements.txt" && \
-    pip install -r "$COMFYUI_DIR/custom_nodes/ComfyUI-KJNodes/requirements.txt" && \
     pip install -r "$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite/requirements.txt" && \
     pip install -r "$COMFYUI_DIR/custom_nodes/ComfyUI-SeedVR2_VideoUpscaler/requirements.txt" && \
     pip install 'huggingface_hub[cli]>=0.35,<2'
