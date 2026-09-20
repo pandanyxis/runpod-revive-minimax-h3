@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+models/
+input/
+output/
+temp/
+*.mp4
+*.mov
+*.safetensors

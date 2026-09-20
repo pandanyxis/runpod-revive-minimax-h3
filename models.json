@@ -1,5 +1,22 @@
 [
   {
+    "set": "restoration",
+    "repo": "numz/SeedVR2_comfyUI",
+    "revision": "09ced71023636e9bc8cdf9cdecfb2625d1e691e8",
+    "filename": "seedvr2_ema_3b_fp16.safetensors",
+    "path": "SEEDVR2/seedvr2_ema_3b_fp16.safetensors",
+    "bytes": 6783018808
+  },
+  {
+    "set": "restoration",
+    "repo": "numz/SeedVR2_comfyUI",
+    "revision": "09ced71023636e9bc8cdf9cdecfb2625d1e691e8",
+    "filename": "ema_vae_fp16.safetensors",
+    "path": "SEEDVR2/ema_vae_fp16.safetensors",
+    "bytes": 501324814
+  },
+  {
+    "set": "h3",
     "repo": "Comfy-Org/MiniMax-H3",
     "revision": "7e75982b97cd5a41d2dcfa1904ee88d0686d6fd1",
     "filename": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
@@ -7,6 +24,7 @@
     "bytes": 27141342152
   },
   {
+    "set": "h3",
     "repo": "smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models",
     "revision": "a36feb17fbd1f20ff4bdd509ccd07e2b7b585a38",
     "filename": "minimax_h3_hybrid_fl2va_ref2va_b25-49-int8.safetensors",
@@ -14,6 +32,7 @@
     "bytes": 20970379632
   },
   {
+    "set": "h3",
     "repo": "Comfy-Org/MiniMax-H3",
     "revision": "7e75982b97cd5a41d2dcfa1904ee88d0686d6fd1",
     "filename": "vae/minimax_h3_video_vae_int8_convrot.safetensors",

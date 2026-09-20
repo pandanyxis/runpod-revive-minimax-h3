@@ -11,9 +11,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--dest", required=True)
+    parser.add_argument("--set", choices=("restoration", "h3", "all"), default="restoration")
     args = parser.parse_args()
     root = Path(args.dest)
     for item in json.loads(Path(args.manifest).read_text(encoding="utf-8")):
+        if args.set != "all" and item["set"] != args.set:
+            continue
         target = root / item["path"]
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.is_file() and target.stat().st_size == item["bytes"]:

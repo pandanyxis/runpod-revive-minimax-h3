@@ -1,33 +1,35 @@
 # Film Revive op RunPod
 
-Deze repository bevat een eigen ComfyUI Docker-image en een opgeschoonde versie van de aangeleverde MiniMax H3 video workflow. De image installeert ComfyUI, KJNodes, VideoHelperSuite en FFmpeg. De drie benodigde modelbestanden komen op een persistent RunPod volume, niet in Git of de Docker-image.
+Deze repository bevat een eigen ComfyUI Docker-image met twee workflows. **[`film-restoration.json`](workflows/film-restoration.json) is de aanbevolen route voor oude film en clips**: SeedVR2 verwerkt de originele frames als videoreeks en verbetert scherpte en details met temporele samenhang. De opgeschoonde MiniMax H3 workflow blijft beschikbaar als creatieve optie. De image installeert ComfyUI, SeedVR2, KJNodes, VideoHelperSuite en FFmpeg. Modelbestanden komen op een persistent RunPod volume, niet in Git of de Docker-image.
 
 ## Wat de workflow doet
 
-Upload een oude clip via `VHS_LoadVideo`, pas desgewenst de prompt aan en start de workflow. De `film-revive` output is de gegenereerde video; `film-revive-compare` toont een vergelijking. De originele audiotrack wordt doorgegeven aan de video-outputs.
+Importeer `workflows/film-restoration.json`, upload de clip in `LoadVideo` en start de workflow. `SeedVR2VideoUpscaler` gebruikt alle geladen frames; `CreateVideo` behoudt de originele framerate en audiotrack. De output heet `film-restored`. De meegeleverde 3B FP16 variant is gekozen voor kwaliteit en heeft circa 7,3 GB aan modelbestanden.
 
-**Belangrijke beperking:** de originele workflow gebruikt één frame uit de clip als beeldgids voor MiniMax H3. De rest van de frames wordt niet afzonderlijk gerestaureerd. Dit is daarom een AI reconstructie van een korte clip, geen framegetrouwe restauratie. Gezichten, beweging of details kunnen veranderen. Bekijk het resultaat per clip voordat je het gebruikt.
+Sterk vervaagde of verdwenen informatie is niet exact terug te halen. AI kan aannemelijke details toevoegen; vergelijk daarom gezichten, tekst en kleine voorwerpen met het origineel.
+
+De optionele [`film-revive.json`](workflows/film-revive.json) is de aangeleverde MiniMax H3 workflow. Die gebruikt één frame als gids en genereert de rest van de clip opnieuw. Dit is minder geschikt als getrouwheid aan de originele beweging en details belangrijk is. `film-revive` is de gegenereerde video; `film-revive-compare` toont een vergelijking.
 
 ## Benodigdheden
 
-- RunPod GPU Pod met bij voorkeur 80 GB VRAM voor de meegeleverde 768p workflow. Lagere resolutie of kortere clips kunnen op minder VRAM werken, maar zijn hier niet getest.
-- Een persistent volume van minimaal 100 GB op `/workspace` voor circa 51 GB modellen, input, output en tijdelijke bestanden.
-- Toegang tot de drie Hugging Face modelbestanden in [`models.json`](models.json); accepteer indien nodig eerst de modellicentie op Hugging Face en voeg `HF_TOKEN` toe als Pod environment variable. Deel dat token niet in GitHub of in de workflow.
+- RunPod GPU Pod met bij voorkeur 24 GB VRAM of meer voor SeedVR2 3B FP16; geheugengebruik hangt af van resolutie en clipduur. De optionele H3 workflow kan aanzienlijk meer VRAM vragen en is niet getest.
+- Een persistent volume op `/workspace` van minimaal 50 GB voor SeedVR2 modellen, input, output en tijdelijke bestanden. Neem minimaal 100 GB als je ook de drie H3 modellen wilt gebruiken.
+- Toegang tot de Hugging Face modelbestanden in [`models.json`](models.json); accepteer indien nodig eerst de modellicentie op Hugging Face en voeg `HF_TOKEN` toe als Pod environment variable. Deel dat token niet in GitHub of in de workflow.
 
 ## Voorbereiden op RunPod
 
 1. Wacht tot de GitHub Actions workflow **Build RunPod image** is geslaagd. Gebruik dan `ghcr.io/pandanyxis/runpod-revive-minimax-h3:latest` als **Container Image** in een nieuwe RunPod Pod template. Het GHCR package moet **Public** staan, zodat RunPod de image zonder registry credentials kan ophalen.
 2. Stel **Expose HTTP Ports** in op `8188` en mount het persistente volume op `/workspace`.
-3. Zet environment variable `DOWNLOAD_MODELS=1` voor de eerste start. Voeg `HF_TOKEN` toe als de modellen toegangsbeperkt zijn. De eerste start downloadt circa 51 GB en kan lang duren. Hierna kun je `DOWNLOAD_MODELS=0` zetten; bestaande bestanden worden bij `1` ook overgeslagen.
-4. Open de ComfyUI HTTP service op poort `8188`, importeer [`workflows/film-revive.json`](workflows/film-revive.json), upload je clip in `VHS_LoadVideo` en controleer de video-instellingen voor je de run start.
+3. Zet environment variables `DOWNLOAD_MODELS=1` en `MODEL_SET=restoration` voor de eerste start. Voeg `HF_TOKEN` toe als de modellen toegangsbeperkt zijn. De eerste start downloadt circa 7,3 GB. Hierna kun je `DOWNLOAD_MODELS=0` zetten; bestaande bestanden worden bij `1` ook overgeslagen.
+4. Open de ComfyUI HTTP service op poort `8188`, importeer [`workflows/film-restoration.json`](workflows/film-restoration.json), upload je clip in `LoadVideo` en controleer de resolutie. De standaard is 1080 pixels aan de korte zijde. Begin met een korte clip om kwaliteit en geheugenverbruik te beoordelen.
 
-De oorspronkelijke workflow had een platformgebonden versleutelde node, videopreviews met persoonlijke paden en een los beeldgeneratiepad met zestien LoRA’s. Deze onderdelen zijn uit de openbare workflow gehaald. De drie H3 modellen en het pad van de clip worden na het importeren via ComfyUI geselecteerd.
+Voor de H3 workflow zet je `MODEL_SET=h3` en `DOWNLOAD_MODELS=1`; dit downloadt circa 51 GB. De oorspronkelijke workflow had een platformgebonden versleutelde node, videopreviews met persoonlijke paden en een los beeldgeneratiepad met zestien LoRA’s. Deze onderdelen zijn uit de openbare workflow gehaald.
 
 ## Lokaal bouwen
 
 ```bash
 docker build -t film-revive:local .
-docker run --gpus all -p 8188:8188 -v film-revive-data:/workspace/ComfyUI -e DOWNLOAD_MODELS=1 film-revive:local
+docker run --gpus all -p 8188:8188 -v film-revive-data:/workspace/ComfyUI -e DOWNLOAD_MODELS=1 -e MODEL_SET=restoration film-revive:local
 ```
 
 Voor een RunPod network volume op `/workspace` schrijft de container naar `/workspace/ComfyUI`. Modellen staan in `models/text_encoders`, `models/diffusion_models` en `models/vae`. Invoer en uitvoer staan in `input` en `output`.
@@ -39,4 +41,7 @@ Voor een RunPod network volume op `/workspace` schrijft de container naar `/work
 - [ComfyUI VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite)
 - [MiniMax H3 modellen](https://huggingface.co/Comfy-Org/MiniMax-H3)
 - [Hybride H3 model](https://huggingface.co/smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models)
+- [SeedVR2 ComfyUI nodes en voorbeeldworkflow](https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler)
+- [SeedVR2 modellen](https://huggingface.co/numz/SeedVR2_comfyUI)
+- [ComfyUI gids voor video upscale en restauratie](https://docs.comfy.org/tutorials/utility/video-upscale)
 - [RunPod documentatie over container images](https://docs.runpod.io/pods/templates)
