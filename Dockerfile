@@ -1,4 +1,4 @@
-FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
 LABEL org.opencontainers.image.source="https://github.com/pandanyxis/runpod-seedvr2-film-revive"
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -16,7 +16,7 @@ ENV PATH=/opt/venv/bin:$PATH
 
 RUN pip install --upgrade pip && \
     pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 \
-      --index-url https://download.pytorch.org/whl/cu130
+      --index-url https://download.pytorch.org/whl/cu128
 
 ARG COMFYUI_REF=5ba116a40f1944f64e2e4a8ace826656e6293bf4
 ARG VHS_REF=4d907bee61e92c2e65af3bd6383a4e4d356126d1
