@@ -1,0 +1,7 @@
+.git
+.github
+README.md
+*.mp4
+*.mov
+*.safetensors
+__pycache__
