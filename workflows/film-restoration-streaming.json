@@ -48,7 +48,7 @@
       "inputs": [],
       "outputs": [],
       "properties": {},
-      "widgets_values": ["1. Upload een video via LoadVideo links. Die node is alleen voor upload en hoeft niet verbonden te worden.\n2. Ververs ComfyUI en kies hetzelfde bestand bij Film Revive rechts.\n3. Klik Run. SeedVR2 verwerkt maximaal 15 seconden per deel, schrijft direct naar disk en voegt de originele audio aan de MP4 toe.\n4. Het resultaat staat in /workspace/ComfyUI/output. Een eerste test van 15 seconden is verstandig."],
+      "widgets_values": ["1. Upload een video via LoadVideo links. Die node is alleen voor upload en hoeft niet verbonden te worden.\n2. Ververs ComfyUI en kies hetzelfde bestand bij Film Revive rechts.\n3. Klik Run. SeedVR2 verwerkt maximaal 15 seconden per deel. Afgeronde stille previews verschijnen in output/*-parts/part-*.mp4.\n4. Bekijk previews via de bestandsbrowser op poort 3923. De uiteindelijke MP4 in output bevat de originele audio. Stop bewaart afgeronde delen."],
       "color": "#432",
       "bgcolor": "#653"
     }

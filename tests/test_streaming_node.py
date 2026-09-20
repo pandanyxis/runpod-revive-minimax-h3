@@ -35,20 +35,25 @@ class StreamingNodeTest(unittest.TestCase):
             folder_paths.get_output_directory = lambda: str(output_dir)
             comfy = types.ModuleType("comfy")
             comfy.__path__ = []
+            comfy_model_management = types.ModuleType("comfy.model_management")
+            comfy_model_management.throw_exception_if_processing_interrupted = lambda: None
             comfy_utils = types.ModuleType("comfy.utils")
             comfy_utils.ProgressBar = FakeProgressBar
-            with patch.dict(sys.modules, {"folder_paths": folder_paths, "comfy": comfy, "comfy.utils": comfy_utils}):
+            with patch.dict(sys.modules, {"folder_paths": folder_paths, "comfy": comfy,
+                                          "comfy.model_management": comfy_model_management,
+                                          "comfy.utils": comfy_utils}):
                 spec = util.spec_from_file_location("film_revive_node_test", NODE_PATH)
                 node_module = util.module_from_spec(spec)
                 spec.loader.exec_module(node_module)
 
                 self.assertEqual(node_module.input_videos(), ["film.mp4"])
 
-                def fake_restore(source, destination, resolution, chunk_seconds, progress):
+                def fake_restore(source, destination, resolution, chunk_seconds, progress, should_cancel):
                     self.assertEqual(source, input_dir / "film.mp4")
                     self.assertEqual(resolution, 1080)
                     self.assertEqual(chunk_seconds, 15)
                     destination.write_bytes(b"done")
+                    should_cancel()
                     progress(1, 1)
 
                 fake_runner = types.SimpleNamespace(run_restore=fake_restore)

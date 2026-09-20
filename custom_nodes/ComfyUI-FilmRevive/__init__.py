@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import folder_paths
+from comfy import model_management
 from comfy.utils import ProgressBar
 
 
@@ -70,7 +71,10 @@ class FilmReviveStreaming:
             progress_bar.update_absolute(done, total)
 
         runner = load_runner()
-        runner.run_restore(source, destination, resolution, chunk_seconds, progress)
+        runner.run_restore(
+            source, destination, resolution, chunk_seconds, progress,
+            should_cancel=model_management.throw_exception_if_processing_interrupted,
+        )
         return {
             "ui": {
                 "images": [{"filename": destination.name, "subfolder": "", "type": "output"}],

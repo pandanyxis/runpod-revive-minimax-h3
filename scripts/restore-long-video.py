@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
@@ -16,6 +17,7 @@ from typing import Callable
 
 CHUNK_FRAME_LIMIT = 450
 CHUNK_LINE = re.compile(r"\bChunk\s+(\d+)/(\d+):")
+SAVED_FRAMES_LINE = re.compile(r"\bSaved\s+(\d+)\s+images\s+to\b")
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -45,13 +47,13 @@ def frames_per_chunk(rate: Fraction, seconds: int) -> int:
     return max(1, min(desired, CHUNK_FRAME_LIMIT))
 
 
-def stream_command(source: Path, raw_output: Path, resolution: int, chunk_size: int) -> list[str]:
+def stream_command(source: Path, frames_root: Path, resolution: int, chunk_size: int) -> list[str]:
     comfy = Path(os.environ.get("COMFYUI_DIR", "/opt/ComfyUI"))
     data = Path(os.environ.get("DATA_DIR", "/workspace/ComfyUI"))
     return [
         sys.executable,
         str(comfy / "custom_nodes/ComfyUI-SeedVR2_VideoUpscaler/inference_cli.py"),
-        str(source), "--output", str(raw_output), "--output_format", "mp4",
+        str(source), "--output", str(frames_root), "--output_format", "png",
         "--model_dir", str(data / "models/SEEDVR2"),
         "--dit_model", "seedvr2_ema_3b_fp16.safetensors",
         "--resolution", str(resolution), "--max_resolution", "1920",
@@ -63,12 +65,57 @@ def stream_command(source: Path, raw_output: Path, resolution: int, chunk_size: 
     ]
 
 
+def encode_preview(frames_dir: Path, base_name: str, start_frame: int,
+                   count: int, rate: Fraction, destination: Path) -> None:
+    """Publish one completed chunk as a playable, silent MP4."""
+    pattern = str(frames_dir / f"{base_name.replace('%', '%%')}_%06d.png")
+    temporary = frames_dir.parent / f"preview-{start_frame:08d}.mp4"
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+         "-framerate", str(rate), "-start_number", str(start_frame),
+         "-i", pattern, "-frames:v", str(count), "-an", "-c:v", "libx264",
+         "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p",
+         "-movflags", "+faststart", str(temporary)],
+        check=True,
+    )
+    if not temporary.is_file() or temporary.stat().st_size == 0:
+        raise RuntimeError("FFmpeg did not create a preview")
+    os.replace(temporary, destination)
+    for index in range(start_frame, start_frame + count):
+        (frames_dir / f"{base_name}_{index:06d}.png").unlink(missing_ok=True)
+
+
+def stop_process(process: subprocess.Popen) -> None:
+    """Stop SeedVR2 and its child encoder when ComfyUI interrupts the node."""
+    if process.poll() is not None:
+        return
+    try:
+        if os.name == "nt":
+            process.terminate()
+        else:
+            os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            if os.name == "nt":
+                process.kill()
+            else:
+                os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
+
+
 def run_restore(
     source: Path,
     destination: Path,
     resolution: int = 1080,
     chunk_seconds: int = 15,
     progress: Callable[[int, int], None] | None = None,
+    should_cancel: Callable[[], None] | None = None,
 ) -> Path:
     source = Path(source).resolve()
     destination = Path(destination).resolve()
@@ -79,41 +126,81 @@ def run_restore(
     if resolution < 256 or resolution > 2160:
         raise ValueError("resolution must be between 256 and 2160")
 
-    chunk_size = frames_per_chunk(frame_rate(source), chunk_seconds)
+    rate = frame_rate(source)
+    chunk_size = frames_per_chunk(rate, chunk_seconds)
     destination.parent.mkdir(parents=True, exist_ok=True)
     data = Path(os.environ.get("DATA_DIR", "/workspace/ComfyUI"))
     temp_root = data / "temp"
     temp_root.mkdir(parents=True, exist_ok=True)
     print(f"Streaming in chunks of at most {chunk_size} frames", flush=True)
+    preview_dir = destination.parent / f"{destination.stem}-parts"
+    preview_dir.mkdir()
+    print(f"Playable previews will appear in: {preview_dir}", flush=True)
 
     with TemporaryDirectory(prefix="film-revive-", dir=temp_root) as directory:
-        raw = Path(directory) / "restored-no-audio.mp4"
+        frames_root = Path(directory) / "frames"
+        frames_dir = frames_root / source.stem
+        concatenated = Path(directory) / "restored-no-audio.mp4"
         muxed = Path(directory) / "restored-with-audio.mp4"
-        command = stream_command(source, raw, resolution, chunk_size)
+        command = stream_command(source, frames_root, resolution, chunk_size)
         recent = deque(maxlen=30)
         total_chunks = 0
+        completed_chunks = 0
+        frames_written = 0
+        previews = []
+        if should_cancel:
+            should_cancel()
         with subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, errors="replace", bufsize=1,
+            start_new_session=(os.name != "nt"),
         ) as process:
-            assert process.stdout is not None
-            for line in process.stdout:
-                clean = ANSI.sub("", line).rstrip()
-                print(clean, flush=True)
-                recent.append(clean)
-                match = CHUNK_LINE.search(clean)
-                if match:
-                    index, total_chunks = map(int, match.groups())
-                    if progress:
-                        progress(index - 1, total_chunks)
-            code = process.wait()
+            try:
+                assert process.stdout is not None
+                for line in process.stdout:
+                    if should_cancel:
+                        should_cancel()
+                    clean = ANSI.sub("", line).rstrip()
+                    print(clean, flush=True)
+                    recent.append(clean)
+                    match = CHUNK_LINE.search(clean)
+                    if match:
+                        _, total_chunks = map(int, match.groups())
+                    saved = SAVED_FRAMES_LINE.search(clean)
+                    if saved:
+                        count = int(saved.group(1))
+                        completed_chunks += 1
+                        preview = preview_dir / f"part-{completed_chunks:03d}.mp4"
+                        encode_preview(frames_dir, source.stem, frames_written,
+                                       count, rate, preview)
+                        previews.append(preview)
+                        frames_written += count
+                        print(f"Preview ready: {preview}", flush=True)
+                        if progress:
+                            progress(completed_chunks, max(total_chunks, completed_chunks))
+                    if should_cancel:
+                        should_cancel()
+                code = process.wait()
+            except BaseException:
+                stop_process(process)
+                raise
         if code != 0:
             raise RuntimeError(f"SeedVR2 exited with code {code}:\n" + "\n".join(recent))
-        if not raw.is_file() or raw.stat().st_size == 0:
-            raise RuntimeError("SeedVR2 finished without creating a video")
+        if not previews:
+            raise RuntimeError("SeedVR2 finished without creating preview parts")
+        concat_list = preview_dir / "parts.txt"
+        concat_list.write_text("".join(f"file '{part.name}'\n" for part in previews), encoding="utf-8")
+        subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
+             "-safe", "0", "-i", str(concat_list), "-c", "copy", str(concatenated)],
+            check=True,
+        )
+        concat_list.unlink(missing_ok=True)
+        if not concatenated.is_file() or concatenated.stat().st_size == 0:
+            raise RuntimeError("FFmpeg did not join the preview parts")
         subprocess.run(
             ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-             "-i", str(raw), "-i", str(source), "-map", "0:v:0", "-map", "1:a?",
+             "-i", str(concatenated), "-i", str(source), "-map", "0:v:0", "-map", "1:a?",
              "-c:v", "copy", "-c:a", "aac", "-shortest", "-movflags", "+faststart",
              str(muxed)],
             check=True,
@@ -121,8 +208,6 @@ def run_restore(
         if not muxed.is_file() or muxed.stat().st_size == 0:
             raise RuntimeError("FFmpeg finished without creating a video")
         os.replace(muxed, destination)
-    if progress:
-        progress(max(total_chunks, 1), max(total_chunks, 1))
     print(f"Saved: {destination}", flush=True)
     return destination
 

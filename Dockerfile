@@ -31,7 +31,7 @@ RUN git clone https://github.com/Comfy-Org/ComfyUI.git "$COMFYUI_DIR" && \
     pip install -r "$COMFYUI_DIR/requirements.txt" && \
     pip install -r "$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite/requirements.txt" && \
     pip install -r "$COMFYUI_DIR/custom_nodes/ComfyUI-SeedVR2_VideoUpscaler/requirements.txt" && \
-    pip install 'huggingface_hub[cli]>=0.35,<2'
+    pip install 'huggingface_hub[cli]>=0.35,<2' copyparty==1.20.24
 
 COPY scripts/entrypoint.sh /usr/local/bin/film-revive-entrypoint
 COPY scripts/download-models.py /usr/local/bin/film-revive-download-models
@@ -42,5 +42,5 @@ COPY models.json /opt/film-revive/models.json
 RUN chmod +x /usr/local/bin/film-revive-entrypoint /usr/local/bin/film-revive-download-models /usr/local/bin/film-revive-long /usr/local/bin/film-revive-long.py
 
 WORKDIR /opt/ComfyUI
-EXPOSE 8188
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/film-revive-entrypoint"]
+EXPOSE 8188 3923
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/usr/local/bin/film-revive-entrypoint"]
